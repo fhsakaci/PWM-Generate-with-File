@@ -4,11 +4,12 @@
 
 #include <string.h>
 #include <stdbool.h>
-
 bool UsbTest_Write(void);
 bool UsbTest_Read(void);
 
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+
 
 FATFS myUSB;
 extern char USBHPath[4];
@@ -21,10 +22,11 @@ char rwtext[100];  //Read/Write buf
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM3_Init(void);
 void MX_USB_HOST_Process(void);
+void setPWM_Value(char*);
 
 extern ApplicationTypeDef Appli_state;
-
 int main(void)
 {
   HAL_Init();
@@ -35,10 +37,10 @@ int main(void)
   MX_TIM4_Init();
   MX_FATFS_Init();
   MX_USB_HOST_Init();
+  MX_TIM3_Init();
   while (1)
   {
-    MX_USB_HOST_Process();
-
+     MX_USB_HOST_Process();
 		switch(Appli_state)
 		{
 			case APPLICATION_IDLE:
@@ -61,6 +63,7 @@ int main(void)
 				HAL_GPIO_WritePin(GPIOG,GPIO_PIN_13,GPIO_PIN_RESET);
 				break;
 		}
+
   }
 }
 
@@ -71,6 +74,7 @@ void SystemClock_Config(void)
 
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
@@ -83,6 +87,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
@@ -96,6 +101,34 @@ void SystemClock_Config(void)
   }
 }
 
+
+static void MX_TIM3_Init(void)
+{
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 0;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
 
 static void MX_TIM4_Init(void)
 {
@@ -143,6 +176,7 @@ static void MX_TIM4_Init(void)
 
 }
 
+
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -187,6 +221,7 @@ static void MX_GPIO_Init(void)
 
 }
 
+
 bool UsbTest_Write(void)
 {
 	if(f_open(&myFile, "TEST2.TXT", FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
@@ -213,13 +248,15 @@ bool UsbTest_Read(void)
 	char str[MAXCHAR];
 	char* filename = "test.txt";
 	fp = fopen(filename, "r");
-	if (fp == NULL){
-			printf("Could not open file %s",filename);
-			return 1;
+	if (fp == NULL)
+	{
+		printf("Could not open file %s",filename);
+		return 1;
 	}
 	while (fgets(str, MAXCHAR, fp) != NULL)
 	{
 		printf("%s", str);
+		setPWM_Value(str);
 	}
 			
 	fclose(fp);
@@ -229,30 +266,32 @@ bool UsbTest_Read(void)
 
 void setPWM_Value(char* line)
 {
+	double pwm_value[4];
+	char *pwm_channel_value;
+	pwm_channel_value = strtok(line, " ");
+	if(pwm_channel_value == NULL) return;
+	int i=0;
+	while(pwm_channel_value != NULL)
+	{
+		///Set PWM
+		pwm_value[i] = atof(pwm_channel_value);
+		pwm_channel_value = strtok(NULL, " ");
+		i++;
+	}
+	
+	
+	
 	
 }
 
-
 void Error_Handler(void)
 {
-
-
 }
 
 #ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
 void assert_failed(uint8_t *file, uint32_t line)
 { 
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+
 }
 #endif /* USE_FULL_ASSERT */
 
